@@ -25,7 +25,8 @@ func TestParseStreamOpening(t *testing.T) {
 }
 
 func TestBuildStreamResponse(t *testing.T) {
-	response := BuildStreamOpening()
+	c := ClientConnection{}
+	response := c.buildStreamOpening()
 	t.Log(string(response))
 }
 
@@ -34,10 +35,10 @@ func TestAuthGetCredentials(t *testing.T) {
 	user, pass := auth.GetCredentials()
 	println("Got user and pass:", user, pass)
 	if user != "test1" {
-		t.Errorf("User decoded incorrectly")
+		t.Errorf("Username decoded incorrectly")
 	}
 	if pass != "test" {
-		t.Errorf("password decoded incorrectly")
+		t.Errorf("Password decoded incorrectly")
 	}
 }
 
@@ -49,8 +50,8 @@ func TestIqXmlStructs(t *testing.T) {
 	</iq>`
 	iq := new(Iq)
 	xml.Unmarshal([]byte(data), iq)
-	println(iq.Bind.Namespace)
-	println(iq.Bind.Resource[0].Data)
+	println(iq.Bind[0].Xmlns)
+	println(iq.Bind[0].Resource[0].Data)
 	data = `<iq id='wy2xa82b4' type='result'>
 	  <bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>
 	    <jid>juliet@im.example.com/balcony</jid>
