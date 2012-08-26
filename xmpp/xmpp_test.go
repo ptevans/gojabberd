@@ -58,3 +58,9 @@ func TestIqXmlStructs(t *testing.T) {
 	  </bind>
 	</iq>`
 }
+
+func TestNewChallenge(t *testing.T) {
+	c := newChallenge("localhost")
+	out, _ := xml.Marshal(c)
+	println(string(out))
+}

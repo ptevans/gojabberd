@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"net"
 	"strings"
+	"gojabberd/auth"
 )
 
 const (
@@ -83,6 +84,25 @@ func (a Auth) GetCredentials() (user string, pass string) {
 	creds := bytes.Split(decodedCreds, []byte("\x00"))
 	user, pass = string(creds[1]), string(creds[2])
 	return
+}
+
+type Challenge struct {
+	XMLName	xml.Name	`xml:"challenge"`
+	Xmlns	string	`xml:"xmlns,attr"`
+	Data	string	`xml:",chardata"`
+}
+
+func newChallenge(realm string) (c *Challenge) {
+	c = new(Challenge)
+	c.Xmlns = "urn:ietf:params:xml:ns:xmpp-sasl"
+	c.Data = auth.ChallengeDigestMd5(realm)
+	return
+}
+
+type Response struct {
+	XMLName	xml.Name	`xml:"response"`
+	Xmlns	string	`xml:"xmlns,attr"`
+	Data	[]byte	`xml:",chardata"`
 }
 
 type Success struct {
@@ -240,9 +260,25 @@ func (c *ClientConnection) negotiateStream() (e error) {
 	c.readSocket(buf)
 	authStanza := new(Auth)
 	xml.Unmarshal(buf, authStanza)
-	if authStanza.Mechanism == "PLAIN" {
+	switch {
+	case authStanza.Mechanism == "DIGEST-MD5":
+		challenge := newChallenge(c.domain)
+		out, _ := xml.Marshal(challenge)
+		c.conn.Write(out)
+		c.readSocket(buf)
+		var response Response
+		xml.Unmarshal(buf, response)
+		_, challenge.Data = auth.ResponseDigestMd5(response.Data)
+		out, _ = xml.Marshal(challenge)
+		c.conn.Write(out)
+		c.authenticated = true
+		c.readSocket(buf)
+	case authStanza.Mechanism == "PLAIN":
 		c.username, _ = authStanza.GetCredentials()
 		c.authenticated = true
+	default:
+		// TODO: real auth response
+		c.conn.Write([]byte("</stream>"))
 	}
 	if !c.authenticated {
 		println("Authentication failed!")
@@ -300,15 +336,15 @@ func (c *ClientConnection) negotiateStream() (e error) {
 }
 
 func (c *ClientConnection) buildStreamOpening() (response []byte) {
-	stream := StreamResponse{Id: "xxx", From: "localhost", Version: "1.0", Lang: "en", Xmlns: "jabber:client", XmlnsStream: "http://etherx.jabber.org/streams"}
+	stream := StreamResponse{Id: "zzz", From: "localhost", Version: "1.0", Lang: "en", Xmlns: "jabber:client", XmlnsStream: "http://etherx.jabber.org/streams"}
 	streamFeatures := new(StreamFeatures)
 	bind := Bind{Xmlns: "urn:ietf:params:xml:ns:xmpp-bind"}
 	session := Session{Xmlns: "urn:ietf:params:xml:ns:xmpp-session"}
 	if !c.authenticated {
-		mechanism := Mechanism{Data: "PLAIN"}
 		mechanisms := Mechanisms{Xmlns: "urn:ietf:params:xml:ns:xmpp-sasl"}
-		mechanisms.Mechanism = make([]Mechanism, 1)
-		mechanisms.Mechanism[0] = mechanism
+		mechanisms.Mechanism = make([]Mechanism, 4)
+		mechanisms.Mechanism[0] = Mechanism{Data: "DIGEST-MD5"}
+		mechanisms.Mechanism[1] = Mechanism{Data: "PLAIN"}
 		streamFeatures.Mechanisms = mechanisms
 	}
 
