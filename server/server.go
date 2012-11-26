@@ -8,9 +8,11 @@ import (
 func Start() {
 	println("Starting XMPP Server")
 
-	//domainTable := new(DomainTable)
-	presenceTable := new(PresenceTable)
-	presenceTable.Users = make(map[string](*ClientConnection))
+	domainTable := new(DomainTable)
+	domainTable.domains = make(map[string](*Domain))
+	domainTable.RegisterDomain(NewDomain("localhost"))
+	//presenceTable := new(PresenceTable)
+	//presenceTable.Users = make(map[string](*ClientConnection))
 	listener, err := net.Listen("tcp", "0.0.0.0:5222")
 	if err != nil {
 		println("error!", err.Error())
@@ -23,7 +25,7 @@ func Start() {
 			return
 		}
 		c := new(ClientConnection)
-		go c.Go(conn, presenceTable)
+		go c.Go(conn, domainTable)
 	}
 }
 

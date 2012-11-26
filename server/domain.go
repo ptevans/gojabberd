@@ -18,6 +18,13 @@ type Domain struct {
 	tlsRequired bool
 }
 
+func NewDomain(domain string) (d *Domain) {
+	d = &Domain{domain: domain}
+	//d.presence = new(PresenceTable)
+	d.presence.Users = make(map[string](*ClientConnection))
+	return
+}
+
 type DomainTable struct {
 	domains	map[string](*Domain)
 }

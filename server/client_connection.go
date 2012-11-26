@@ -21,34 +21,33 @@ type ClientConnection struct {
 	domainpart    string
 	resource      string
 	domain        *Domain
-	presenceTable *PresenceTable
 	kill          chan bool
 	died          chan bool
 	shutdown      chan bool
 }
 
-func (c *ClientConnection) Go(conn net.Conn, presenceTable *PresenceTable) {
+func (c *ClientConnection) Go(conn net.Conn, domainTable *DomainTable) {
 	defer func() {
 		if err := recover(); err != nil {
 			println("Connection terminated!", err)
 			c.kill <- true
 			c.kill <- true
-			delete(c.presenceTable.Users, c.username)
+			delete(c.domain.presence.Users, c.username)
 		}
 	}()
 	c.conn = conn
-	c.presenceTable = presenceTable
+	//c.presenceTable = presenceTable
 	c.authenticated = false
 	c.Chan = make(chan *[]byte)
 	c.died = make(chan bool)
 	c.kill = make(chan bool)
 	c.shutdown = make(chan bool)
-	err := c.negotiateStream()
+	err := c.negotiateStream(domainTable)
 	if err != nil {
 		println("Failed to establish connection!")
 		return
 	}
-	c.presenceTable.Users[c.username] = c
+	c.domain.presence.Users[c.username] = c
 	go c.listenOnSocket()
 	go c.listenOnChannel()
 	select {
@@ -70,12 +69,21 @@ func (c *ClientConnection) readSocket(buf []byte) {
 	return
 }
 
-func (c *ClientConnection) negotiateStream() (e error) {
+func (c *ClientConnection) negotiateStream(domainTable *DomainTable) (e error) {
 	buf := make([]byte, RECV_BUF_LEN)
 	c.readSocket(buf)
 	stream := new(stanza.Stream)
 	xml.Unmarshal(buf, stream)
 	c.domainpart = stream.To
+
+	domain, err := domainTable.GetDomain(c.domainpart)
+	if err != nil {
+		c.conn.Write([]byte("bad host"))
+		e = err
+		return
+	} else {
+		c.domain = domain
+	}
 
 	response := c.buildStreamOpening()
 	c.conn.Write(response)
@@ -199,7 +207,7 @@ func (c *ClientConnection) listenOnSocket() {
 			username, _, _ := xmpp.ParseJid(message.To)
 			// TODO: test for this before just overwriting
 			message.From = c.username + "@" + c.domainpart
-			if recipient, ok := c.presenceTable.Users[username]; ok {
+			if recipient, ok := c.domain.presence.Users[username]; ok {
 				buf, _ := xml.Marshal(message)
 				recipient.Chan <- &buf
 			} else {
