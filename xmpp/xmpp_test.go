@@ -42,7 +42,7 @@ func TestAuthGetCredentials(t *testing.T) {
 	}
 }
 
-func TestIqXmlStructs(t *testing.T) {
+func TestUnmarshalIq(t *testing.T) {
 	data := `<iq type="set" id="bind_1">
 	  <bind xmlns="urn:ietf:params:xml:ns:xmpp-bind">
 	    <resource deep="derp">galttop</resource>
@@ -59,6 +59,19 @@ func TestIqXmlStructs(t *testing.T) {
 	</iq>`
 }
 
+func TestMarshalMessage(t *testing.T) {
+	message := Message{Body: &Body{Data: "abcde"}}
+	data, _ := xml.Marshal(message)
+	expected := "<message><body>abcde</body></message>"
+	if string(data) != expected {
+		t.Errorf("Marshalling a message yielded unexpected result")
+		t.Log(string(data))
+	}
+}
+
+func TestUnmarshalMessage(t *testing.T) {
+	//data := `<message><body>abcde</body></message>`
+}
 func TestNewChallenge(t *testing.T) {
 	c := newChallenge("localhost")
 	out, _ := xml.Marshal(c)

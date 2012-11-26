@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gojabberd/xmpp"
+	"gojabberd/server"
 	"net"
 	"os"
 )
@@ -9,8 +9,9 @@ import (
 func main() {
 	println("Starting XMPP Server")
 
-	presenceTable := new(xmpp.PresenceTable)
-	presenceTable.Users = make(map[string](*xmpp.ClientConnection))
+	//domainTable := new(server.DomainTable)
+	presenceTable := new(server.PresenceTable)
+	presenceTable.Users = make(map[string](*server.ClientConnection))
 	listener, err := net.Listen("tcp", "0.0.0.0:5222")
 	if err != nil {
 		println("error!", err.Error())
@@ -22,7 +23,7 @@ func main() {
 			println("error!", err.Error())
 			return
 		}
-		c := new(xmpp.ClientConnection)
+		c := new(server.ClientConnection)
 		go c.Go(conn, presenceTable)
 	}
 }
